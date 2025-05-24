@@ -1,34 +1,38 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"rate-limiter-in-go/constants"
+	"rate-limiter-in-go/core/middleware"
+	"rate-limiter-in-go/core/rate_limiter"
+	"rate-limiter-in-go/core/utils"
 	"rate-limiter-in-go/types"
 )
 
-const PORT = "8080"
-
 func main() {
-	// GET `/v1/resource`
-	http.HandleFunc("/v1/resource", handleResourceRequest)
+	buckets := rate_limiter.TokenBucketInit()
 
-	if err := http.ListenAndServe(":"+PORT, nil); err != nil {
+	// Token Bucket rate limited `/v1/resource` request handler
+	rateLimitedResourceRequestHandler := middleware.RateLimiterWrap(handleResourceRequest, rate_limiter.TokenBucketAlgo(buckets))
+
+	// GET `/v1/resource`
+	http.HandleFunc("/v1/resource", rateLimitedResourceRequestHandler)
+
+	if err := http.ListenAndServe(":"+constants.PORT, nil); err != nil {
 		log.Fatalf("Error in starting the server: %v", err)
 	}
 }
 
 func handleResourceRequest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	var response types.Response
 
 	switch r.Method {
 	case http.MethodGet:
-		fmt.Printf("Request: %#v", r)
-		response := types.Response{Success: true, Data: "You will get the resource."}
+		response = types.Response{Success: true, Data: "You will get the resource."}
 	default:
-		response := types.Response{Success: false, Error: "Only `Get` method supported."}
-		encoder := json.NewEncoder(w)
-		encoder.Encode(response)
+		response = types.Response{Success: false, Error: "Only `Get` method supported."}
 	}
+
+	utils.WriteResponse(w, response)
 }
