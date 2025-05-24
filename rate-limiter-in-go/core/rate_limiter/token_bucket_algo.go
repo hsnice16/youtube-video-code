@@ -1,58 +1,74 @@
 package rate_limiter
 
 import (
-	"fmt"
+	"errors"
 	"time"
 )
 
 type Bucket struct {
-	Capacity int // Bucket max capacity
-	Tokens     int
-	RefillRateTokens int // Refill `x` tokens
-	RefillRateDuration time.Duration // Refill `x` tokens per `y` duration
-	LastRefillTime time.Time
+	Capacity           int // Bucket max capacity
+	Tokens             int
+	RefillRateTokens   int   // Refill `x` tokens
+	RefillRateDuration int64 // Refill `x` tokens per `y` duration
+	LastRefillTime     int64
 }
 
-func NewBucket(capacity, tokens, refillRateTokens int) Bucket {
-	return Bucket{
-		Capacity: capacity,
-		Tokens:     tokens,
-		RefillRateTokens: refillRateTokens,
-		RefillRateDuration: 1 * time.Second,
-		LastRefillTime: time.Now(),
+func NewBucket(capacity, tokens, refillRateTokens int) *Bucket {
+	return &Bucket{
+		Capacity:           capacity,
+		Tokens:             tokens,
+		RefillRateTokens:   refillRateTokens,
+		RefillRateDuration: 1000 * time.Millisecond.Milliseconds(), // 1 Second
+		LastRefillTime:     time.Now().UnixMilli(),
 	}
 }
 
-func (b *Bucket) TakeoutToken() {
-	currentTime := time.Now()
-	if(time.Duration(currentTime.Sub(b.LastRefillTime).Seconds()) >= b.RefillRateDuration) {
-		
+func (b *Bucket) TakeoutToken() error {
+	currentTime := time.Now().UnixMilli()
+	diff := currentTime - b.LastRefillTime
+
+	if diff >= b.RefillRateDuration {
+		// If the diff between current time and last refill time exceeds refile rate duration
+		b.RefillBucket()
+		b.LastRefillTime = currentTime
 	}
+
+	if b.Tokens <= 0 {
+		return errors.New("no tokens. limit exceeded")
+	}
+
+	b.Tokens -= 1
+	return nil
 }
 
 func (b *Bucket) RefillBucket() {
 	newTokens := b.Tokens + b.RefillRateTokens
 	if newTokens > b.Capacity {
-		b.Tokens += newTokens - b.Capacity
+		b.Tokens += newTokens - b.Capacity // Assigning to `b.Capacity` should also be fine
 	} else {
 		b.Tokens = newTokens
 	}
 }
 
-func TokenBucketInit() map[string]Bucket {
-	return make(map[string]Bucket)
+func TokenBucketInit() map[string]*Bucket {
+	return make(map[string]*Bucket)
 }
 
-func TokenBucketAlgo(buckets map[string]Bucket) func(string) error {
+func TokenBucketAlgo(buckets *map[string]*Bucket) func(string) error {
 	return func(userIdentifier string) error {
-		if bucket, ok := buckets[userIdentifier]; ok {
+		bucket, ok := (*buckets)[userIdentifier]
 
-		} else {
-			bucket := Bucket{Capacity:50, Tokens: 50, RefillRate: 5}
-			buckets[userIdentifier] = bucket
+		if !ok {
+			// For testing
+			bucket = NewBucket(1, 1, 1)
+			(*buckets)[userIdentifier] = bucket
 		}
 
-		fmt.Println("Inside Token Bucket Algo")
+		err := bucket.TakeoutToken()
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 }

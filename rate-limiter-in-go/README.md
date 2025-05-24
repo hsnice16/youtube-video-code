@@ -24,16 +24,8 @@ Now, whenever a user makes a request, we take one token out from the bucket for 
 
 In our implementation, we will drop the request, and send the error message.
 
+---
 
+**_NOTE:_** The rate limiter algorithm that we have written in this repo, does not have a fault tolerance, meaning if for any reason the server restarts, the bucket state will be lost.
 
-
-
-
-
-
-
-Let's code the `Token Bucket`.
-
-Let's end the video here, and connect in the next one.
-
-Bye 👋
+To make it fault tolerant, we can consider using a persisten storage.

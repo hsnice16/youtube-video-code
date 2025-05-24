@@ -8,7 +8,7 @@ import (
 
 func RateLimiterWrap(handler types.Handler, fn func(string) error) types.Handler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := fn(r.RemoteAddr)
+		err := fn(utils.GetUserIP(r.RemoteAddr))
 
 		if err == nil {
 			handler(w, r)

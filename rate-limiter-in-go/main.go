@@ -14,7 +14,8 @@ func main() {
 	buckets := rate_limiter.TokenBucketInit()
 
 	// Token Bucket rate limited `/v1/resource` request handler
-	rateLimitedResourceRequestHandler := middleware.RateLimiterWrap(handleResourceRequest, rate_limiter.TokenBucketAlgo(buckets))
+	tokenBucketAlgo := rate_limiter.TokenBucketAlgo(&buckets)
+	rateLimitedResourceRequestHandler := middleware.RateLimiterWrap(handleResourceRequest, tokenBucketAlgo)
 
 	// GET `/v1/resource`
 	http.HandleFunc("/v1/resource", rateLimitedResourceRequestHandler)
